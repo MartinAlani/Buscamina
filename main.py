@@ -1,6 +1,26 @@
 import tkinter as tk
+from tkinter import messagebox
 import random
 from PIL import Image,ImageTk
+
+
+
+
+window = tk.Tk()
+window.title("Minesweeper")
+
+original_image = Image.open("bomba.png")
+resized_image = original_image.resize((10, 8))
+
+mine_image = ImageTk.PhotoImage(resized_image)
+
+flag_original_image = Image.open("bandera.png")
+flag_resized_image = flag_original_image.resize((10, 8))
+
+flag_image = ImageTk.PhotoImage(flag_resized_image)
+
+empty_image = Image.new("RGBA", (10, 8), (0,0,0,0))
+empty_image = ImageTk.PhotoImage(empty_image)
 
 rows = 5
 columns = 5
@@ -16,14 +36,6 @@ directions = [
     (1, 1)
 ]
 
-window = tk.Tk()
-window.title("Minesweeper")
-
-original_image = Image.open("bomba.png")
-resized_image = original_image.resize((10, 8))
-
-mine_image = ImageTk.PhotoImage(resized_image)
-
 board = []
 
 for row in range(rows):
@@ -34,6 +46,25 @@ for row in range(rows):
 
     board.append(new_row)
 
+revealed = []
+
+for row in range(rows):
+    new_row = []
+    for column in range(columns):
+        new_row.append(False)
+
+    revealed.append(new_row)
+
+flagged = []
+for row in range(rows):
+    new_row = []
+
+    for column in range(columns):
+        new_row.append(False)
+
+    flagged.append(new_row)
+
+game_over = False
 
 mines_placed = 0
 
@@ -67,14 +98,81 @@ for row in range(rows):
 for row in board:
     print(row)
 
-def click_cell(row, column):
-    print("clicked cell", row, column)
+def show_mines():
+    for row in range(rows):
+        for column in range(columns):
+            if board[row][column] == -1:
+                buttons[row][column].config(image=mine_image)
+
+def reveal_cell(row, column):
     if board[row][column] == -1:
-        print("MINE!")
+        return
+
+    revealed[row][column] = True
+
+    number = board[row][column]
+    buttons[row][column].config(
+        image="",
+        text=str(number)
+    )
+    if number == 0:
+        for row_offset, column_offset in directions:
+            neighbor_row = row + row_offset
+            neighbor_column = column + column_offset
+            if 0 <= neighbor_row < rows and 0 <= neighbor_column < columns:
+                if not revealed[neighbor_row][neighbor_column]:
+                    reveal_cell(neighbor_row, neighbor_column)
+
+def check_win():
+    for row in range(rows):
+        for column in range(columns):
+
+            if board[row][column] == -1:
+                continue
+
+            if not revealed[row][column]:
+                return False
+
+    return True
+
+def click_cell(row, column):
+    global game_over
+
+    print("clicked cell", row, column)
+
+    if game_over:
+        return
+
+    if revealed[row][column]:
+        return
+
+    if board[row][column] == -1:
+        print("MINE")
         buttons[row][column].config(image=mine_image)
+        show_mines()
+        game_over = True
+        messagebox.showinfo("Minesweeper","YOU LOST")
     else:
-        number=board[row][column]
-        buttons[row][column].config(text=str(number))
+        reveal_cell(row, column)
+
+        if check_win():
+            game_over = True
+            messagebox.showinfo("Minesweeper","YOU WIN")
+
+def flag_cell(row, column):
+    if game_over:
+        return
+    if revealed[row][column]:
+        return
+    if flagged[row][column]:
+        flagged[row][column] = False
+        buttons[row][column].config(
+            image=empty_image,
+            text=""
+        )
+    else:
+        flagged[row][column] = True
+        buttons[row][column].config(image=flag_image,text="")
 
 
 buttons = []
@@ -90,6 +188,11 @@ for row in range(rows):
             padx=0,
             pady=0,
             command=lambda r=row, c=column: click_cell(r, c),
+        )
+
+        button.bind(
+            "<Button-3>",
+            lambda event,r=row, c=column: flag_cell(r, c)
         )
 
         button.grid(row=row, column=column)
